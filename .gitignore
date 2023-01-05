@@ -2,7 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+dockerfile
+.devcontainer/
+.vscode/
 # C extensions
 *.so
 
