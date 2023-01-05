@@ -21,11 +21,24 @@ try:
 except ImportError:
     logger.error('Importing matplotlib failed. Plotting will not work.')
 
+def mae(history, forecast):
+    se = np.abs(history['y'] - forecast['yhat'])
+    return se.sum()/len(se)
 
-def model_fit(df):
+def mse(history, forecast):
+    se = (history['y'] - forecast['yhat'])**2
+    return se.sum()/len(se)
+
+def rmse(history, forecast):
+    se = (history['y'] - forecast['yhat'])**2
+    return np.sqrt(se.sum()/len(se))
+
+
+
+def model_fit(df, seasonality, forecast_horizon):
     with st.spinner ('Fitting Model'):
 
-        m = Prophet( seasonality_mode='additive', \
+        m = Prophet( seasonality_mode=seasonality, \
             changepoint_prior_scale=0.01, \
                     yearly_seasonality=10, \
                     weekly_seasonality=False, daily_seasonality=True)
@@ -35,7 +48,7 @@ def model_fit(df):
 
     with st.spinner('Forecasting'):
 
-        future = m.make_future_dataframe(periods = 72, freq = 'H')
+        future = m.make_future_dataframe(periods = forecast_horizon, freq = 'H')
 
         forecast = m.predict(future)
     return m, forecast
@@ -132,11 +145,23 @@ max_date = tides.Date.max().date()
 
 tides.rename(columns={'Date':'ds', 'Level':'y'}, inplace = True)
 
-st.markdown ('Select a date interval to update statistics')
+st.markdown ('Select a date interval for the training set')
 date = st.slider('Make your Choice', min_value = min_date, value = (min_date, max_date), max_value = max_date)
 
-if st.button ("Run"):
-    m, forecast = model_fit(tides)
-    st.pyplot(gf_plot(m, forecast, tail = 24*30, future = 70, include_legend = True))
+seasonality = st.selectbox(
+    'Specify Seasonality',
+    ('additive','multiplicative'))
 
+forecast_horizon = st.slider('Select a forceast horizon (Hours)', min_value=1, value = 72, max_value = 240)
 
+if st.button ("Fit the Model and obtain Forecast"):
+    m, forecast = model_fit(tides, seasonality, forecast_horizon)
+    st.pyplot(gf_plot(m, forecast, tail = 24*30, future = forecast_horizon, include_legend = True))
+
+    performance = pd.DataFrame(np.array([[
+        mse(m.history, forecast),
+        rmse(m.history, forecast),
+        mae(m.history, forecast)]]), 
+        columns = ['MSE','RMSE','MAE'])
+
+    st.table(performance)
