@@ -35,14 +35,23 @@ def rmse(history, forecast):
 
 
 
-def model_fit(df, seasonality, forecast_horizon):
+def model_fit(df, seasonality, seasonality_type, forecast_horizon):
     with st.spinner ('Fitting Model'):
 
-        m = Prophet( seasonality_mode=seasonality, \
+        if seasonality!='No Seasonality':
+            m = Prophet( seasonality_mode=seasonality_type, \
             changepoint_prior_scale=0.01, \
                     yearly_seasonality=10, \
                     weekly_seasonality=False, daily_seasonality=True)
-        m.add_seasonality(name='lunar', period = 29.53, fourier_order = 5)
+            if seasonality=='Lunar':
+                m.add_seasonality(name='lunar', period = 29.53, fourier_order = 5)
+            if seasonality=='Calendar Month':
+                m.add_seasonality(name='Calendar Month', period = 30.5, fourier_order = 5)
+        else:
+            m = Prophet(changepoint_prior_scale=0.01, \
+                    yearly_seasonality=10, \
+                    weekly_seasonality=False, daily_seasonality=True)
+
 
         m.fit(df[(df.ds>=pd.to_datetime(date[0])) & (df.ds<=pd.to_datetime(date[1]))])
 
@@ -51,6 +60,7 @@ def model_fit(df, seasonality, forecast_horizon):
         future = m.make_future_dataframe(periods = forecast_horizon, freq = 'H')
 
         forecast = m.predict(future)
+
     return m, forecast
 
 
@@ -148,14 +158,18 @@ tides.rename(columns={'Date':'ds', 'Level':'y'}, inplace = True)
 st.markdown ('Select a date interval for the training set')
 date = st.slider('Make your Choice', min_value = min_date, value = (min_date, max_date), max_value = max_date)
 
-seasonality = st.selectbox(
-    'Specify Seasonality',
-    ('additive','multiplicative'))
+seasonality = st.radio('Select Seasonality',('No Seasonality','Calendar Month', 'Lunar'))
+seasonality_type = ''
 
-forecast_horizon = st.slider('Select a forceast horizon (Hours)', min_value=1, value = 72, max_value = 240)
+if seasonality !='No Seasonality':
+    seasonality_type = st.selectbox(
+        'Specify Seasonality',
+        ('additive','multiplicative'))
+
+forecast_horizon = st.slider('Select a forecast horizon (Hours)', min_value=1, value = 72, max_value = 240)
 
 if st.button ("Fit the Model and obtain Forecast"):
-    m, forecast = model_fit(tides, seasonality, forecast_horizon)
+    m, forecast = model_fit(tides,seasonality, seasonality_type, forecast_horizon)
     st.pyplot(gf_plot(m, forecast, tail = 24*30, future = forecast_horizon, include_legend = True))
 
     performance = pd.DataFrame(np.array([[
@@ -165,3 +179,6 @@ if st.button ("Fit the Model and obtain Forecast"):
         columns = ['MSE','RMSE','MAE'])
 
     st.table(performance)
+    st.caption('Performance metrics')
+
+    st.pyplot(m.plot_components(forecast))

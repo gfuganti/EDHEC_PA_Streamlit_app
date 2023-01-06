@@ -5,50 +5,49 @@ import datetime as dt
 import matplotlib.pyplot as plt 
 import matplotlib.dates as mdates
 
-# from prophet import Prophet
-# from prophet.diagnostics import performance_metrics
-# from prophet.diagnostics import cross_validation
-# from prophet.plot import plot_cross_validation_metric
+
 
 
 def ts_plot(df):
-    fig, ax = plt.subplots(figsize = (10,6) )
+    fig, ax = plt.subplots(figsize = (12,6) )
     
     half_year_locator = mdates.MonthLocator(interval=12)
     ax.set_facecolor('whitesmoke')
     ax.xaxis.set_major_locator(half_year_locator) # Locator for major axis only.
-    # ax.scatter(df[df.sustained==1].Date, df[df.sustained==1].Level, s = 1, color = 'red')
-    # sustained_dates = list(df[df.sustained==1].Date)
-    # for sd in sustained_dates:
-    #     ax.axvline(x=sd, color='darkgray', linestyle='-')
-    # very_sustained_dates = list(df[df.very_sustained==1].Date)
-    # for sd in very_sustained_dates:
-    #     ax.axvline(x=sd, color='orange', linestyle='-')
-    # exceptional_dates = list(df[df.exceptional==1].Date)
-    # for sd in exceptional_dates:
-    #     ax.axvline(x=sd, color='red', linestyle='-')
+
     ax.axhline(y=80, color = 'darkgray', linestyle = ':')
     ax.axhline(y=110, color = 'orange', linestyle = ':')
     ax.axhline(y=140, color = 'red', linestyle = ':')
-    # ax.text(df.Date.min(),80,'Sustained level')
  
     ax.plot(df.Date, df.Level, color = 'black', linestyle = '-', lw = 1)
     return fig
 
 def hist_plot(df):
-    fig, ax = plt.subplots(figsize = (10,6) )
-    
-    ax.set_facecolor('whitesmoke')
+    fig, ax = plt.subplots(3,1, figsize = (12,6) )
 
-    # count, bins = np.histogram(df.Level)
-    data = pd.DataFrame(df[df.Level>80].groupby(df.Date.dt.year)['Level'].mean()).reset_index()
 
-    ax.plot(data.Date, data.Level, color = 'black', linestyle = '-', lw = 1)
+    data = df
+
+    ax[0].set_facecolor('whitesmoke')
+    ax[0].set_title('Number of Sustained tide hours per months')
+    p = ax[0].bar(data.mn, data.sustained, color='darkgrey')
+    ax[0].bar_label(p, label_type='center', padding= 6)
+
+    ax[1].set_facecolor('whitesmoke')
+    ax[1].set_title('Number of Very Sustained tide hours per months')
+    p=ax[1].bar(data.mn, data.very_sustained, color='orange')
+    ax[1].bar_label(p, label_type='center', padding= 6)
+
+    ax[2].set_facecolor('whitesmoke')
+    ax[2].set_title('Number of Exceptional tide hours per months')
+    p=ax[2].bar(data.mn, data.exceptional, color='red')
+    ax[2].bar_label(p, label_type='center', padding= 6)
+
+    fig.tight_layout()
     return fig
 
 st.set_page_config(page_title = 'Descriptive Statistics', layout="centered")
 st.header ('Aqua Alta: Tides in Venice')
-# st.image('./images/image.jpg')
 
 tides = pd.read_csv('tides.csv')[['Date','Level']]
 
@@ -88,17 +87,17 @@ exceptional = tides_daily.exceptional.sum()
 message = 'In the period from **' + date[0].strftime('%B %d, %Y') + '** and **' + date[1].strftime('%B %d, %Y') + '** Venezia has seen ' 
 
 if sustained > 0:
-    message += ' **' + str(sustained) + '** days of sustained tide, '
+    message += ' **' + str(sustained) + '** days when tides were **sustained**, '
 else:
     message += 'no days of sustained tide, '
 
 if very_sustained > 0 :
-    message += '**' + str(very_sustained) + '** days of very sustained tide, '
+    message += '**' + str(very_sustained) + '** days when tides were **very sustained**, '
 else:
     message += 'no days of very sustained tide, '
 
 if exceptional > 0 :
-    message += 'and **' + str(exceptional) + '** days of exceptional tide '
+    message += 'and **' + str(exceptional) + '** days where tides were **exceptional**'
 else:
     message += 'no days of exceptional tide'
 
@@ -107,7 +106,12 @@ st.markdown(message)
 st.pyplot(ts_plot(tides_daily))
 st.caption('Max value of sea level on a daily basis')
 
-st.pyplot(hist_plot(tides_daily))
-st.caption('Sea Level Average, when sea level is higher than 80 cm')
+
+t_y = pd.DataFrame(tides[(tides.Date>=pd.to_datetime(date[0])) & (tides.Date<=pd.to_datetime(date[1]))]).groupby(tides.Date.dt.month)['sustained','very_sustained','exceptional'].sum().reset_index()
+# t_y = tides.groupby(tides.Date.dt.month)['sustained','very_sustained','exceptional'].sum().reset_index()
+t_y['mn']=t_y.Date.apply(lambda x: dt.date(1900, x, 1).strftime('%b'))
+
+st.pyplot(hist_plot(t_y))
+st.caption('Distribution of tide severe events by month')
 
 
