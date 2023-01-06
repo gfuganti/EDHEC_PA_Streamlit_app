@@ -21,6 +21,18 @@ try:
 except ImportError:
     logger.error('Importing matplotlib failed. Plotting will not work.')
 
+def mae(history, forecast):
+    se = np.abs(history['y'] - forecast['yhat'])
+    return se.sum()/len(se)
+
+def mse(history, forecast):
+    se = (history['y'] - forecast['yhat'])**2
+    return se.sum()/len(se)
+
+def rmse(history, forecast):
+    se = (history['y'] - forecast['yhat'])**2
+    return np.sqrt(se.sum()/len(se))
+
 def gf_plot(
     m, fcst, ax=None, uncertainty=True, plot_cap=True, xlabel='ds', ylabel='y',
     figsize=(10, 6), include_legend=False, tail = 0, future = 0
@@ -113,11 +125,26 @@ with st.spinner ('Forecasting ...'):
     forecast = m.predict(future)
 
 st.balloons()
-st.write ('Model Loaded')
+st.success('Model Loaded and Forecast Completed !')
 
 from prophet.plot import plot, plot_plotly, plot_components_plotly, plot_seasonality_plotly
 
+message = """The following chart reports the 72 hours forecast of the pre-trained model. 
+    - weekly and daily seasonality are set to False 
+    - Seasonality based on Lunar month is introduced """
 
+st.markdown(message)
 
 st.pyplot(gf_plot(m, forecast, tail = 120, future = 70))
+st.caption('Model results, with 72 hours forecast')
+performance = pd.DataFrame(np.array([[
+        mse(m.history, forecast),
+        rmse(m.history, forecast),
+        mae(m.history, forecast)]]), 
+        columns = ['MSE','RMSE','MAE'])
 
+st.table(performance)
+st.caption('Performance metrics')
+
+st.pyplot(m.plot_components(forecast))
+st.caption('Yearly component confirms that Tides are higher in Autumn and Spring')
